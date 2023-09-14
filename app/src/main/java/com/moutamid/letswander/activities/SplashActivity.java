@@ -37,3 +37,4 @@ public class SplashActivity extends AppCompatActivity {
     }
 }
  //Changes
+//changes
