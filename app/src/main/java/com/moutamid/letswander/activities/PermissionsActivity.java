@@ -4,7 +4,6 @@ import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -12,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.moutamid.letswander.Constants;
 import com.moutamid.letswander.databinding.ActivityPermissionsBinding;
 
 public class PermissionsActivity extends AppCompatActivity {
@@ -21,11 +21,31 @@ public class PermissionsActivity extends AppCompatActivity {
     private int FINE_LOCATION_ACCESS_REQUEST_CODE = 10001;
     private int BACKGROUND_LOCATION_ACCESS_REQUEST_CODE = 10002;
 
+
+    Constants.CURRENT_LAYOUT currentLayout = Constants.CURRENT_LAYOUT.LOCATION;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         b = ActivityPermissionsBinding.inflate(getLayoutInflater());
         setContentView(b.getRoot());
+
+        b.allowBtn.setOnClickListener(v -> {
+
+            switch (currentLayout) {
+                case LOCATION:
+
+                    break;
+                case GEOLOCATION:
+
+                    break;
+                case NOTIFICATION:
+
+                    break;
+            }
+
+        });
+
 
         b.backgroundBtn.setOnClickListener(v -> {
             if (Build.VERSION.SDK_INT >= 29) {
