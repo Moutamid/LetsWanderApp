@@ -12,6 +12,7 @@ import com.moutamid.letswander.activities.MapsActivity;
 import com.moutamid.letswander.helper.NotificationHelper;
 
 import java.util.List;
+import java.util.Objects;
 
 public class GeofenceBroadcastReceiver extends BroadcastReceiver {
 
@@ -27,10 +28,10 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
 
         GeofencingEvent geofencingEvent = GeofencingEvent.fromIntent(intent);
 
-        if (geofencingEvent.hasError()) {
+        /*if (Objects.requireNonNull(geofencingEvent).hasError()) {
             Log.d(TAG, "onReceive: Error receiving geofence event...");
             return;
-        }
+        }*/
 
         List<Geofence> geofenceList = geofencingEvent.getTriggeringGeofences();
         for (Geofence geofence: geofenceList) {
