@@ -32,7 +32,7 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
             Log.d(TAG, "onReceive: Error receiving geofence event...");
             return;
         }*/
-
+/*
         List<Geofence> geofenceList = geofencingEvent.getTriggeringGeofences();
         for (Geofence geofence: geofenceList) {
             Log.d(TAG, "onReceive: " + geofence.getRequestId());
@@ -53,7 +53,7 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
                 Toast.makeText(context, "GEOFENCE_TRANSITION_EXIT", Toast.LENGTH_SHORT).show();
                 notificationHelper.sendHighPriorityNotification("GEOFENCE_TRANSITION_EXIT", "", MapsActivity.class);
                 break;
-        }
+        }*/
 
     }
 }

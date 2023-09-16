@@ -63,6 +63,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private String GEOFENCE_ID = "SOME_GEOFENCE_ID";
     private int FINE_LOCATION_ACCESS_REQUEST_CODE = 10001;
     private int BACKGROUND_LOCATION_ACCESS_REQUEST_CODE = 10002;
+    private int POST_NOTIFICATION_CODE = 10003;
     private String descriptionToSpeak;
     private TextToSpeech textToSpeech;
     public static ArrayList<MarkerData> markerDataList;
@@ -172,6 +173,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         }
     }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -341,10 +343,10 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             public void onMyLocationChange(Location location) {
                 float[] distance = new float[2];
 
-                Location.distanceBetween( location.getLatitude(), location.getLongitude(),
+                Location.distanceBetween(location.getLatitude(), location.getLongitude(),
                         circleOptions.getCenter().latitude, circleOptions.getCenter().longitude, distance);
 
-                if( distance[0] < circleOptions.getRadius() ){
+                if (distance[0] < circleOptions.getRadius()) {
                     //current location is within circle
                     Toast.makeText(geofenceHelper, "reached", Toast.LENGTH_SHORT).show();
                 }
