@@ -1,8 +1,10 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Base.Theme.LetsWander" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Base.Theme.LetsWander" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowLightStatusBar">false</item>
-        <item name="colorPrimary">@color/primary</item> -->
+        <item name="colorPrimary">@color/primary</item>
+        <item name="android:fontFamily">@font/poppins</item>
+        <item name="android:includeFontPadding">false</item>
     </style>
 
     <style name="Theme.LetsWander" parent="Base.Theme.LetsWander" />

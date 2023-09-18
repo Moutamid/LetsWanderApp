@@ -1,29 +1,47 @@
 package com.moutamid.letswander.activities;
 
 import android.Manifest;
+import android.app.Dialog;
 import android.app.PendingIntent;
+import android.app.ProgressDialog;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.location.Location;
+import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
+import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
+
+import com.fxn.stash.Stash;
+import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.Geofence;
 import com.google.android.gms.location.GeofencingClient;
@@ -41,25 +59,30 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.ValueEventListener;
 import com.moutamid.letswander.Constants;
 import com.moutamid.letswander.R;
+import com.moutamid.letswander.helper.NotificationHelper;
 import com.moutamid.letswander.models.MarkerData;
 import com.moutamid.letswander.service.GeofenceHelper;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
 
-public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleMap.OnMarkerClickListener, TextToSpeech.OnInitListener {
+public class MapsActivity extends AppCompatActivity implements TextToSpeech.OnInitListener, ConnectionCallbacks, OnConnectionFailedListener {
     private static final String TAG = "MapsActivity";
 
     private GoogleMap mMap;
     private GeofencingClient geofencingClient;
     private GeofenceHelper geofenceHelper;
-    private float GEOFENCE_RADIUS = 300;
+    private float GEOFENCE_RADIUS = 30;
     private String GEOFENCE_ID = "SOME_GEOFENCE_ID";
     private int FINE_LOCATION_ACCESS_REQUEST_CODE = 10001;
     private int BACKGROUND_LOCATION_ACCESS_REQUEST_CODE = 10002;
@@ -67,135 +90,114 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private String descriptionToSpeak;
     private TextToSpeech textToSpeech;
     public static ArrayList<MarkerData> markerDataList;
+    ProgressDialog progressDialog;
+    Location currentLocation;
+    FusedLocationProviderClient fusedLocationProviderClient;
+    Map<String, String> geo = new HashMap<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
 
-        DatabaseReference markersRef = Constants.databaseReference().child("Markers");
+        progressDialog = new ProgressDialog(this);
+        progressDialog.setMessage("Please Wait...");
+        progressDialog.setCancelable(false);
+
+        new GoogleApiClient.Builder(this)
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .addApi(LocationServices.API)
+                .build().connect();
 
         textToSpeech = new TextToSpeech(this, this);
 
         geofencingClient = LocationServices.getGeofencingClient(this);
         geofenceHelper = new GeofenceHelper(this);
 
-
-        markersRef.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                markerDataList = new ArrayList<>();
-
-                for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
-                    MarkerData firebaseMarkerData = snapshot.getValue(MarkerData.class);
-
-                    // Convert FirebaseMarkerData to your MarkerData
-                    MarkerData markerData = new MarkerData(
-                            firebaseMarkerData.getId(),
-                            firebaseMarkerData.getLatitude(),
-                            firebaseMarkerData.getLongitude(),
-                            firebaseMarkerData.getTitle(),
-                            firebaseMarkerData.getDescription(),
-                            firebaseMarkerData.getStar()
-                    );
-                    markerDataList.add(markerData);
-
-                }
-
-                SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                        .findFragmentById(R.id.map);
-                mapFragment.getMapAsync(MapsActivity.this);
-
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-
-            }
-        });
+        showMap();
     }
 
     @Override
-    public void onMapReady(@NonNull GoogleMap googleMap) {
-        mMap = googleMap;
+    protected void onResume() {
+        super.onResume();
+        showMap();
+    }
 
-        enableUserLocation();
-        moveToCurrentUserLocation();
+    private void showMap() {
+        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
+        if (!checkGPSStatus()) {
+            progressDialog.show();
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, 1);
+            }
+            Task<Location> task = fusedLocationProviderClient.getLastLocation();
+            task.addOnSuccessListener(location -> {
+                if (location != null) {
+                    currentLocation = location;
+                    SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
+                    if (mapFragment != null) {
+                        mapFragment.getMapAsync(googleMap -> {
+                            mMap = googleMap;
+                            if (ActivityCompat.checkSelfPermission(MapsActivity.this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(MapsActivity.this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                                ActivityCompat.requestPermissions(MapsActivity.this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, 1);
+                                return;
+                            }
+                            googleMap.setMyLocationEnabled(true);
+                            Constants.databaseReference().child(Constants.Markers).addListenerForSingleValueEvent(new ValueEventListener() {
+                                @Override
+                                public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                                    if (dataSnapshot.exists()) {
+                                        markerDataList = new ArrayList<>();
+                                        for (DataSnapshot snapshot : dataSnapshot.getChildren()) {
+                                            MarkerData markerData = snapshot.getValue(MarkerData.class);
+                                            markerDataList.add(markerData);
 
-        for (MarkerData markerData : markerDataList) {
-            LatLng location = new LatLng(markerData.getLatitude(), markerData.getLongitude());
-            Boolean star = markerData.getStar();
-            int width = 48;
-            int height = 48;
-            BitmapDescriptor markerIcon = vectorToBitmap(R.drawable.baseline_circle_24, width, height);
-            if (star != null && star.booleanValue()) {
-                Log.d("MarkerData", "Marker Id1 : " + location);
-                markerIcon = vectorToBitmap(R.drawable.baseline_star_rate_24, width, height);
-            } else {
-                if (Build.VERSION.SDK_INT >= 29) {
-                    if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                        showgeofence(location);
-                    } else {
-                        if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION)) {
-                            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_BACKGROUND_LOCATION}, BACKGROUND_LOCATION_ACCESS_REQUEST_CODE);
-                        } else {
-                            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_BACKGROUND_LOCATION}, BACKGROUND_LOCATION_ACCESS_REQUEST_CODE);
-                        }
+                                            LatLng location = new LatLng(markerData.getLatitude(), markerData.getLongitude());
+                                            Boolean star = markerData.getStar();
+                                            int width = 48;
+                                            int height = 48;
+                                            BitmapDescriptor markerIcon = vectorToBitmap(R.drawable.baseline_circle_24, width, height);
+                                            if (star != null && star) {
+                                                markerIcon = vectorToBitmap(R.drawable.baseline_star_rate_24, width, height);
+                                            }
+                                            MarkerOptions markerOptions = new MarkerOptions()
+                                                    .position(location)
+                                                    .title(markerData.getTitle())
+                                                    .snippet(markerData.getDescription())
+                                                    .icon(markerIcon);
+
+//                                            mMap.clear();
+                                            addCircle(location, GEOFENCE_RADIUS, markerOptions.getSnippet());
+                                            addGeofence(location, GEOFENCE_RADIUS, markerOptions.getSnippet());
+
+                                            googleMap.addMarker(markerOptions);
+                                        }
+                                    }
+                                    progressDialog.dismiss();
+                                }
+
+                                @Override
+                                public void onCancelled(@NonNull DatabaseError error) {
+                                    progressDialog.dismiss();
+                                    Toast.makeText(MapsActivity.this, error.getMessage(), Toast.LENGTH_SHORT).show();
+                                }
+                            });
+                            googleMap.getUiSettings().setMyLocationButtonEnabled(false);
+                            LatLng current = new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude());
+                            googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(current, 15));
+
+                            googleMap.setOnMarkerClickListener(marker -> {
+                                showCustomDialog(marker.getTitle(), marker.getPosition(), marker.getSnippet());
+                                descriptionToSpeak = marker.getSnippet(); // Set the description to speak
+                                onInit(TextToSpeech.SUCCESS); // Initialize TTS
+                                return false;
+                            });
+
+                        });
                     }
-
-                } else {
-                    showgeofence(location);
                 }
-            }
-            addMarker(location, markerData.getTitle(), markerData.getDescription(), markerIcon);
-        }
-    }
-
-    private void addMarker(LatLng latLng, String title, String snippet, BitmapDescriptor markerIcon) {
-        MarkerOptions markerOptions = new MarkerOptions()
-                .position(latLng)
-                .title(title)
-                .snippet(snippet)
-                .icon(markerIcon);
-
-        mMap.addMarker(markerOptions);
-        mMap.setOnMarkerClickListener(this);
-    }
-
-    private void enableUserLocation() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            mMap.setMyLocationEnabled(true);
-        } else {
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, FINE_LOCATION_ACCESS_REQUEST_CODE);
-            } else {
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, FINE_LOCATION_ACCESS_REQUEST_CODE);
-            }
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == FINE_LOCATION_ACCESS_REQUEST_CODE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                    return;
-                }
-                mMap.setMyLocationEnabled(true);
-            } else {
-                Log.d(TAG, "Permission Not Granted");
-            }
-        }
-
-        if (requestCode == BACKGROUND_LOCATION_ACCESS_REQUEST_CODE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                //We have the permission
-                Toast.makeText(this, "You can add geofences...", Toast.LENGTH_SHORT).show();
-            } else {
-                //We do not have the permission..
-                Toast.makeText(this, "Background location access is neccessary for geofences to trigger...", Toast.LENGTH_SHORT).show();
-            }
+            });
         }
     }
 
@@ -211,64 +213,38 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         return BitmapDescriptorFactory.fromBitmap(bitmap);
     }
 
-
-    @Override
-    public boolean onMarkerClick(Marker marker) {
-        showCustomDialog(marker.getTitle(), marker.getPosition(), marker.getSnippet());
-        descriptionToSpeak = marker.getSnippet(); // Set the description to speak
-        onInit(TextToSpeech.SUCCESS); // Initialize TTS
-        return true;
-    }
-
-    private void moveToCurrentUserLocation() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            FusedLocationProviderClient fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-            fusedLocationClient.getLastLocation()
-                    .addOnSuccessListener(this, new OnSuccessListener<Location>() {
-                        @Override
-                        public void onSuccess(Location location) {
-                            if (location != null) {
-                                LatLng currentLatLng = new LatLng(location.getLatitude(), location.getLongitude());
-                                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 15)); // You can adjust the zoom level as needed
-
-                            } else {
-                                Toast.makeText(getApplicationContext(), "Location not available", Toast.LENGTH_SHORT).show();
-                            }
-                        }
-                    });
-        } else {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, FINE_LOCATION_ACCESS_REQUEST_CODE);
-        }
-    }
-
     private void showCustomDialog(String title, LatLng location, String description) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(R.layout.custom_dialog);
+        dialog.setCancelable(true);
+        dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        dialog.getWindow().setGravity(Gravity.CENTER);
+        dialog.show();
 
-        View dialogView = getLayoutInflater().inflate(R.layout.custom_dialog, null);
-
-        TextView dialogTitle = dialogView.findViewById(R.id.dialog_title);
-        TextView dialogLocation = dialogView.findViewById(R.id.dialog_location);
-        TextView dialogDescription = dialogView.findViewById(R.id.dialog_description);
+        TextView dialogTitle = dialog.findViewById(R.id.dialog_title);
+        TextView dialogLocation = dialog.findViewById(R.id.dialog_location);
+        TextView dialogDescription = dialog.findViewById(R.id.dialog_description);
 
         dialogTitle.setText(title);
         dialogLocation.setText(location.latitude + ", " + location.longitude);
         dialogDescription.setText(description);
 
-        builder.setView(dialogView);
+        Button okButton = dialog.findViewById(R.id.dialog_ok_button);
+        okButton.setOnClickListener(view -> {
+            if (textToSpeech != null && textToSpeech.isSpeaking()) {
+                textToSpeech.stop();
+            }
+            dialog.dismiss();
+        });
 
-        AlertDialog alertDialog = builder.create();
-        alertDialog.show();
-
-        Button okButton = alertDialog.findViewById(R.id.dialog_ok_button);
-        okButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (textToSpeech != null && textToSpeech.isSpeaking()) {
-                    textToSpeech.stop();
-                }
-                alertDialog.dismiss();
+        dialog.setOnCancelListener(dialog1 -> {
+            if (textToSpeech != null && textToSpeech.isSpeaking()) {
+                textToSpeech.stop();
             }
         });
+
     }
 
 
@@ -276,13 +252,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     public void onInit(int status) {
         if (status == TextToSpeech.SUCCESS) {
             int result = textToSpeech.setLanguage(Locale.US);
-
-            if (result == TextToSpeech.LANG_MISSING_DATA ||
-                    result == TextToSpeech.LANG_NOT_SUPPORTED) {
+            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                 Toast.makeText(this, "Text-to-speech language not supported.", Toast.LENGTH_SHORT).show();
             } else {
                 if (descriptionToSpeak != null && !descriptionToSpeak.isEmpty()) {
-                    textToSpeech.speak(descriptionToSpeak, TextToSpeech.QUEUE_FLUSH, null, null);
+                   textToSpeech.speak(descriptionToSpeak, TextToSpeech.QUEUE_FLUSH, null, null);
                 }
             }
         } else {
@@ -290,47 +264,27 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
     }
 
-    private void showgeofence(LatLng latLng) {
-        mMap.clear();
-//        addMarker(latLng);
-        addCircle(latLng, GEOFENCE_RADIUS);
-        addGeofence(latLng, GEOFENCE_RADIUS);
-    }
-
-    private void addGeofence(LatLng latLng, float radius) {
-
+    private void addGeofence(LatLng latLng, float radius, String snippet) {
+        GEOFENCE_ID = UUID.randomUUID().toString();
         Geofence geofence = geofenceHelper.getGeofence(GEOFENCE_ID, latLng, radius, Geofence.GEOFENCE_TRANSITION_ENTER | Geofence.GEOFENCE_TRANSITION_DWELL | Geofence.GEOFENCE_TRANSITION_EXIT);
         GeofencingRequest geofencingRequest = geofenceHelper.getGeofencingRequest(geofence);
         PendingIntent pendingIntent = geofenceHelper.getPendingIntent();
+        geo.put(geofence.getRequestId(), snippet);
+        Stash.put(Constants.GEOFENCE, geo);
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
             return;
         }
         geofencingClient.addGeofences(geofencingRequest, pendingIntent)
-                .addOnSuccessListener(new OnSuccessListener<Void>() {
-                    @Override
-                    public void onSuccess(Void aVoid) {
-                        Log.d(TAG, "onSuccess: Geofence Added...");
-                    }
-                })
-                .addOnFailureListener(new OnFailureListener() {
-                    @Override
-                    public void onFailure(@NonNull Exception e) {
-                        String errorMessage = geofenceHelper.getErrorString(e);
-                        Log.d(TAG, "onFailure: " + errorMessage);
-                    }
+                .addOnSuccessListener(aVoid -> Log.d(TAG, "onSuccess: Geofence Added..."))
+                .addOnFailureListener(e -> {
+                    String errorMessage = geofenceHelper.getErrorString(e);
+                    Log.d(TAG, "onFailure: " + errorMessage);
                 });
     }
 
 
-    private void addCircle(LatLng latLng, float radius) {
+    private void addCircle(LatLng latLng, float radius, String snippet) {
         CircleOptions circleOptions = new CircleOptions();
         circleOptions.center(latLng);
         circleOptions.radius(radius);
@@ -338,21 +292,59 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         circleOptions.fillColor(Color.argb(64, 255, 0, 0));
         circleOptions.strokeWidth(4);
         mMap.addCircle(circleOptions);
-        mMap.setOnMyLocationChangeListener(new GoogleMap.OnMyLocationChangeListener() {
-            @Override
-            public void onMyLocationChange(Location location) {
-                float[] distance = new float[2];
-
-                Location.distanceBetween(location.getLatitude(), location.getLongitude(),
-                        circleOptions.getCenter().latitude, circleOptions.getCenter().longitude, distance);
-
-                if (distance[0] < circleOptions.getRadius()) {
-                    //current location is within circle
-                    Toast.makeText(geofenceHelper, "reached", Toast.LENGTH_SHORT).show();
-                }
-
+        mMap.setOnMyLocationChangeListener(location -> {
+            float[] distance = new float[2];
+            Location.distanceBetween(location.getLatitude(), location.getLongitude(), circleOptions.getCenter().latitude, circleOptions.getCenter().longitude, distance);
+            if (distance[0] < circleOptions.getRadius()) {
+                descriptionToSpeak = snippet;
+              //  onInit(TextToSpeech.SUCCESS);
+               // new NotificationHelper(MapsActivity.this).sendHighPriorityNotification("Let's Wander", descriptionToSpeak, MapsActivity.class);
             }
+
         });
     }
 
+    private boolean checkGPSStatus() {
+        LocationManager locationManager;
+        boolean gps_enabled = false;
+        boolean network_enabled = false;
+        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        try {
+            gps_enabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        try {
+            network_enabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        if (!gps_enabled && !network_enabled) {
+            new AlertDialog.Builder(this).setTitle("Open Settings")
+                    .setMessage("GPS not enabled")
+                    .setCancelable(true)
+                    .setPositiveButton("Open Settings", (dialog, which) -> {
+                        dialog.dismiss();
+                        Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+                        startActivity(intent);
+                    }).show();
+        }
+        return !gps_enabled && !network_enabled;
+    }
+
+    @Override
+    public void onConnected(@Nullable Bundle bundle) {
+
+    }
+
+    @Override
+    public void onConnectionSuspended(int i) {
+
+    }
+
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+
+    }
 }

@@ -43,7 +43,11 @@
         <receiver
             android:name=".GeofenceBroadcastReceiver"
             android:enabled="true"
-            android:exported="true"/>
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.moutamid.letswander.ACTION_GEOFENCE_TRANSITION"/>
+            </intent-filter>
+        </receiver>
 
         <activity
             android:name=".activities.MapsActivity"
@@ -53,6 +57,11 @@
             android:exported="true">
 
         </activity>
+
+        <service android:name=".service.TtsService" android:enabled="true" android:exported="true" >
+
+
+        </service>
 
     </application>
 

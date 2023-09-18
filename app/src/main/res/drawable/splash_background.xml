@@ -11,7 +11,7 @@
     <item
         android:width="100dp"
         android:height="120dp"
-        android:drawable="@drawable/logo"
+        android:drawable="@drawable/logo_text"
         android:gravity="center"></item>
 
 </layer-list>

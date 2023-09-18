@@ -15,6 +15,8 @@ import com.google.firebase.database.FirebaseDatabase;
 public class Constants {
 
     public static final String ARE_ALL_PERMISSIONS_GRANTED = "ARE_ALL_PERMISSIONS_GRANTED";
+    public static final String Markers = "Markers";
+    public static final String GEOFENCE = "GEOFENCE";
 
     public enum CURRENT_LAYOUT {LOCATION, GEOLOCATION, NOTIFICATION}
 
