@@ -35,13 +35,17 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.fragment.app.FragmentActivity;
 
 import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.Api;
 import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
 import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
 
 import com.fxn.stash.Stash;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.Geofence;
 import com.google.android.gms.location.GeofencingClient;
@@ -69,12 +73,15 @@ import com.moutamid.letswander.R;
 import com.moutamid.letswander.helper.NotificationHelper;
 import com.moutamid.letswander.models.MarkerData;
 import com.moutamid.letswander.service.GeofenceHelper;
+import com.moutamid.letswander.service.LocationService;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 public class MapsActivity extends AppCompatActivity implements TextToSpeech.OnInitListener, ConnectionCallbacks, OnConnectionFailedListener {
     private static final String TAG = "MapsActivity";
@@ -82,7 +89,7 @@ public class MapsActivity extends AppCompatActivity implements TextToSpeech.OnIn
     private GoogleMap mMap;
     private GeofencingClient geofencingClient;
     private GeofenceHelper geofenceHelper;
-    private float GEOFENCE_RADIUS = 30;
+    public static float GEOFENCE_RADIUS = 30;
     private String GEOFENCE_ID = "SOME_GEOFENCE_ID";
     private int FINE_LOCATION_ACCESS_REQUEST_CODE = 10001;
     private int BACKGROUND_LOCATION_ACCESS_REQUEST_CODE = 10002;
@@ -169,9 +176,9 @@ public class MapsActivity extends AppCompatActivity implements TextToSpeech.OnIn
 
 //                                            mMap.clear();
                                             addCircle(location, GEOFENCE_RADIUS, markerOptions.getSnippet());
-                                            addGeofence(location, GEOFENCE_RADIUS, markerOptions.getSnippet());
-
                                             googleMap.addMarker(markerOptions);
+                                            addGeofence(location, GEOFENCE_RADIUS, markerOptions.getSnippet());
+                                            Stash.put(Constants.STASH_Markers, markerDataList);
                                         }
                                     }
                                     progressDialog.dismiss();
@@ -183,10 +190,10 @@ public class MapsActivity extends AppCompatActivity implements TextToSpeech.OnIn
                                     Toast.makeText(MapsActivity.this, error.getMessage(), Toast.LENGTH_SHORT).show();
                                 }
                             });
-                            googleMap.getUiSettings().setMyLocationButtonEnabled(false);
+                            googleMap.getUiSettings().setMyLocationButtonEnabled(true);
+                            googleMap.setMyLocationEnabled(true);
                             LatLng current = new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude());
                             googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(current, 15));
-
                             googleMap.setOnMarkerClickListener(marker -> {
                                 showCustomDialog(marker.getTitle(), marker.getPosition(), marker.getSnippet());
                                 descriptionToSpeak = marker.getSnippet(); // Set the description to speak
@@ -194,6 +201,8 @@ public class MapsActivity extends AppCompatActivity implements TextToSpeech.OnIn
                                 return false;
                             });
 
+                            Intent locationServiceIntent = new Intent(MapsActivity.this, LocationService.class);
+                            ContextCompat.startForegroundService(MapsActivity.this, locationServiceIntent);
                         });
                     }
                 }
@@ -204,12 +213,9 @@ public class MapsActivity extends AppCompatActivity implements TextToSpeech.OnIn
     private BitmapDescriptor vectorToBitmap(@DrawableRes int vectorResourceId, int width, int height) {
         Drawable vectorDrawable = ContextCompat.getDrawable(this, vectorResourceId);
         vectorDrawable.setBounds(0, 0, width, height);
-
         Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-
         Canvas canvas = new Canvas(bitmap);
         vectorDrawable.draw(canvas);
-
         return BitmapDescriptorFactory.fromBitmap(bitmap);
     }
 
@@ -256,7 +262,7 @@ public class MapsActivity extends AppCompatActivity implements TextToSpeech.OnIn
                 Toast.makeText(this, "Text-to-speech language not supported.", Toast.LENGTH_SHORT).show();
             } else {
                 if (descriptionToSpeak != null && !descriptionToSpeak.isEmpty()) {
-                   textToSpeech.speak(descriptionToSpeak, TextToSpeech.QUEUE_FLUSH, null, null);
+                    textToSpeech.speak(descriptionToSpeak, TextToSpeech.QUEUE_FLUSH, null, null);
                 }
             }
         } else {
@@ -265,8 +271,8 @@ public class MapsActivity extends AppCompatActivity implements TextToSpeech.OnIn
     }
 
     private void addGeofence(LatLng latLng, float radius, String snippet) {
-        GEOFENCE_ID = UUID.randomUUID().toString();
-        Geofence geofence = geofenceHelper.getGeofence(GEOFENCE_ID, latLng, radius, Geofence.GEOFENCE_TRANSITION_ENTER | Geofence.GEOFENCE_TRANSITION_DWELL | Geofence.GEOFENCE_TRANSITION_EXIT);
+//        GEOFENCE_ID = UUID.randomUUID().toString();
+        Geofence geofence = geofenceHelper.getGeofence(String.valueOf(latLng), latLng, radius, Geofence.GEOFENCE_TRANSITION_ENTER | Geofence.GEOFENCE_TRANSITION_DWELL | Geofence.GEOFENCE_TRANSITION_EXIT);
         GeofencingRequest geofencingRequest = geofenceHelper.getGeofencingRequest(geofence);
         PendingIntent pendingIntent = geofenceHelper.getPendingIntent();
         geo.put(geofence.getRequestId(), snippet);
@@ -283,7 +289,6 @@ public class MapsActivity extends AppCompatActivity implements TextToSpeech.OnIn
                 });
     }
 
-
     private void addCircle(LatLng latLng, float radius, String snippet) {
         CircleOptions circleOptions = new CircleOptions();
         circleOptions.center(latLng);
@@ -297,8 +302,8 @@ public class MapsActivity extends AppCompatActivity implements TextToSpeech.OnIn
             Location.distanceBetween(location.getLatitude(), location.getLongitude(), circleOptions.getCenter().latitude, circleOptions.getCenter().longitude, distance);
             if (distance[0] < circleOptions.getRadius()) {
                 descriptionToSpeak = snippet;
-              //  onInit(TextToSpeech.SUCCESS);
-               // new NotificationHelper(MapsActivity.this).sendHighPriorityNotification("Let's Wander", descriptionToSpeak, MapsActivity.class);
+                //  onInit(TextToSpeech.SUCCESS);
+                // new NotificationHelper(MapsActivity.this).sendHighPriorityNotification("Let's Wander", descriptionToSpeak, MapsActivity.class);
             }
 
         });
@@ -347,4 +352,5 @@ public class MapsActivity extends AppCompatActivity implements TextToSpeech.OnIn
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
 
     }
+
 }

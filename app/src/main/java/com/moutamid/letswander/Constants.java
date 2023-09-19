@@ -16,6 +16,8 @@ public class Constants {
 
     public static final String ARE_ALL_PERMISSIONS_GRANTED = "ARE_ALL_PERMISSIONS_GRANTED";
     public static final String Markers = "Markers";
+    public static final String STASH_Markers = "STASH_Markers";
+    public static final String STASH_GEOFENCE = "STASH_GEOFENCE";
     public static final String GEOFENCE = "GEOFENCE";
 
     public enum CURRENT_LAYOUT {LOCATION, GEOLOCATION, NOTIFICATION}

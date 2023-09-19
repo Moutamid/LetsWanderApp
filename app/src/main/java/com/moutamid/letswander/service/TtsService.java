@@ -1,12 +1,25 @@
 package com.moutamid.letswander.service;
 
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.Service;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
+import android.os.Build;
 import android.os.IBinder;
 import android.speech.tts.TextToSpeech;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
+import androidx.core.app.NotificationCompat;
+
+import com.google.android.gms.location.GeofencingEvent;
+import com.moutamid.letswander.R;
+import com.moutamid.letswander.helper.MyHelperService;
 
 import java.util.Locale;
 
@@ -18,7 +31,15 @@ public class TtsService extends Service implements TextToSpeech.OnInitListener {
     @Override
     public void onCreate() {
         super.onCreate();
-        textToSpeech = new TextToSpeech(this, this);
+        textToSpeech = new TextToSpeech(this, status -> {
+            if (status != TextToSpeech.SUCCESS) {
+                // Handle error
+            }
+        });
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            startMyOwnForeground();
+        else
+            startForeground(2, new Notification());
     }
 
     @Nullable
@@ -37,7 +58,35 @@ public class TtsService extends Service implements TextToSpeech.OnInitListener {
                 onInit(TextToSpeech.SUCCESS);
             }
         }
-        return START_NOT_STICKY;
+        return START_STICKY;
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private void startMyOwnForeground() {
+        String NOTIFICATION_CHANNEL_ID = "example.permanence";
+        String channelName = "Background Service";
+        NotificationChannel chan = new NotificationChannel(NOTIFICATION_CHANNEL_ID, channelName, NotificationManager.IMPORTANCE_MIN);
+
+        NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        assert manager != null;
+        manager.createNotificationChannel(chan);
+
+        NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID);
+        Notification notification = notificationBuilder.setOngoing(true)
+                .setContentTitle("Service running")
+                .setContentText("Detecting location in background")
+                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setPriority(NotificationManager.IMPORTANCE_MIN)
+                .setCategory(Notification.CATEGORY_SERVICE)
+                .build();
+        startForeground(2, notification);
+    }
+
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        stopForeground(true);
     }
 
     @Override
@@ -53,5 +102,4 @@ public class TtsService extends Service implements TextToSpeech.OnInitListener {
             Log.e(TAG, "Text-to-speech initialization failed.");
         }
     }
-
 }

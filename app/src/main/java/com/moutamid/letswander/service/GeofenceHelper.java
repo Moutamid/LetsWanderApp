@@ -4,6 +4,7 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.Intent;
+import android.os.Build;
 
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.location.Geofence;
@@ -33,14 +34,16 @@ public class GeofenceHelper extends ContextWrapper {
                 .setCircularRegion(latLng.latitude, latLng.longitude, radius)
                 .setRequestId(ID)
                 .setTransitionTypes(transitionTypes)
-                .setLoiteringDelay(5000)
+                .setLoiteringDelay(2000)
                 .setExpirationDuration(Geofence.NEVER_EXPIRE)
                 .build();
     }
 
     public PendingIntent getPendingIntent() {
-        Intent intent = new Intent(this, GeofenceBroadcastReceiver.class);
-        pendingIntent = PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        Intent intent = new Intent(this, LocationService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            pendingIntent = PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        }
         return pendingIntent;
     }
 

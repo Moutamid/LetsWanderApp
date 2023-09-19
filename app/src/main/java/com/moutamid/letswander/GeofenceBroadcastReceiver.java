@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.location.Location;
+import android.os.Build;
 import android.os.IBinder;
 import android.speech.tts.TextToSpeech;
 import android.util.Log;
@@ -16,10 +17,16 @@ import androidx.core.content.ContextCompat;
 import com.fxn.stash.Stash;
 import com.google.android.gms.location.Geofence;
 import com.google.android.gms.location.GeofencingEvent;
+import com.google.android.gms.maps.model.LatLng;
 import com.moutamid.letswander.activities.MapsActivity;
+import com.moutamid.letswander.helper.MyHelperService;
 import com.moutamid.letswander.helper.NotificationHelper;
+import com.moutamid.letswander.models.MarkerData;
+import com.moutamid.letswander.service.GeofenceHelper;
+import com.moutamid.letswander.service.LocationService;
 import com.moutamid.letswander.service.TtsService;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -31,30 +38,47 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
     private static final String TAG = "GeofenceBroadcastReceiv";
     TextToSpeech textToSpeech;
     Context context;
-    String desc;
+    String desc, descriptionToSpeak = "";
 
     @Override
     public void onReceive(Context context, Intent intent) {
         this.context = context;
-        NotificationHelper notificationHelper = new NotificationHelper(context);
 
         Log.d(TAG, "onReceive");
 
-        if (intent != null) {
+
+/*        if (intent != null) {
             GeofencingEvent geofencingEvent = GeofencingEvent.fromIntent(intent);
             if (geofencingEvent != null) {
                 int transitionType = geofencingEvent.getGeofenceTransition();
                 switch (transitionType) {
                     case Geofence.GEOFENCE_TRANSITION_ENTER:
+//        List<Geofence> geofenceList = geofencingEvent.getTriggeringGeofences();
+                        ArrayList<MarkerData> markerDataList = Stash.getArrayList(Constants.STASH_Markers, MarkerData.class);
+                        for (Geofence geofence : geofenceList) {
+                            String geofenceRequestId = geofence.getRequestId();
+                            for (MarkerData markerData : markerDataList) {
+                                LatLng latLng = new LatLng(markerData.getLatitude(), markerData.getLongitude());
+                                String location = String.valueOf(latLng);
+                                if (geofenceRequestId.equals(location)) {
+                                    Log.d("TTS Geofence", "Entered");
+                                    Toast.makeText(context, "Entered", Toast.LENGTH_SHORT).show();
+                                    descriptionToSpeak = markerData.getDescription();
+                                    Intent ttsIntent = new Intent(context, TtsService.class);
+                                    ttsIntent.putExtra("description", descriptionToSpeak);
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                        context.startForegroundService(ttsIntent);
+                                    } else {
+                                        context.startService(ttsIntent);
+                                    }
+                                    context.getApplicationContext().bindService(ttsIntent, ttsServiceConnection, Context.BIND_AUTO_CREATE);
+                                    notificationHelper.sendHighPriorityNotification(markerData.getTitle(), descriptionToSpeak, MapsActivity.class);
+                                    break;
+                                }
+                            }
+                        }
+
                         Log.d(TAG, "GEOFENCE_TRANSITION_ENTER");
-                        String snippet = getLocationName(geofencingEvent.getTriggeringGeofences());
-                        desc = snippet;
-                        Intent ttsIntent = new Intent(context, TtsService.class);
-                        ttsIntent.putExtra("description", desc);
-                        context.startService(ttsIntent);
-                       // ContextCompat.startForegroundService(context, ttsIntent);
-                        context.getApplicationContext().bindService(ttsIntent, ttsServiceConnection, Context.BIND_AUTO_CREATE);
-                        notificationHelper.sendHighPriorityNotification("GEOFENCE_TRANSITION_ENTER", desc, MapsActivity.class);
                         break;
                     case Geofence.GEOFENCE_TRANSITION_DWELL:
                         Toast.makeText(context, "GEOFENCE_TRANSITION_DWELL", Toast.LENGTH_SHORT).show();
@@ -70,7 +94,7 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
             }
         } else {
             Log.e(TAG, "Received null intent");
-        }
+        }*/
     }
 
     private ServiceConnection ttsServiceConnection = new ServiceConnection() {

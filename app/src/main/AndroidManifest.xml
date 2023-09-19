@@ -23,10 +23,19 @@
         android:theme="@style/Theme.LetsWander"
         tools:targetApi="31">
 
-        <activity android:name=".activities.SplashActivity"
-            android:theme="@style/SplashTheme"
+        <activity
+            android:name=".activities.MapsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.PermissionsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".activities.SplashActivity"
             android:exported="true"
-            android:noHistory="true">
+            android:noHistory="true"
+            android:theme="@style/SplashTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -40,28 +49,32 @@
             android:name="preloaded_fonts"
             android:resource="@array/preloaded_fonts" />
 
+<!--
         <receiver
             android:name=".GeofenceBroadcastReceiver"
             android:enabled="true"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.moutamid.letswander.ACTION_GEOFENCE_TRANSITION"/>
+                <action android:name="com.moutamid.letswander.ACTION_GEOFENCE_TRANSITION" />
+                <action android:name="GeofenceBroadcastReceiver.ACTION_RECEIVE_GEOFENCE" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="om.moutamid.letswander.GEOFENCE_TRANSITION" />
+                <action android:name="android.location.PROVIDERS_CHANGED" />
             </intent-filter>
         </receiver>
+-->
 
-        <activity
-            android:name=".activities.MapsActivity"
-            android:exported="true"/>
-        <activity
-            android:name=".activities.PermissionsActivity"
-            android:exported="true">
+        <service
+            android:name=".service.TtsService"
+            android:enabled="true"
+            android:exported="true"
+            android:foregroundServiceType="location" />
 
-        </activity>
-
-        <service android:name=".service.TtsService" android:enabled="true" android:exported="true" >
-
-
-        </service>
+        <service
+            android:name=".service.LocationService"
+            android:enabled="true"
+            android:exported="true"
+            android:foregroundServiceType="location" />
 
     </application>
 
