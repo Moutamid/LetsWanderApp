@@ -129,7 +129,7 @@ public class LocationService extends Service implements LocationListener, TextTo
 
         Toast.makeText(this, "Location : " + lat + ",\t" + lon, Toast.LENGTH_SHORT).show();
 
-        NotificationHelper notificationHelper = new NotificationHelper(context);
+        NotificationHelper notificationHelper = new NotificationHelper(this);
 
         ArrayList<MarkerData> list = Stash.getArrayList(Constants.STASH_Markers, MarkerData.class);
         List<Geofence> geofenceList = new ArrayList<>();

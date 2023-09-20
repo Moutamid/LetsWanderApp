@@ -10,6 +10,7 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS" />
 
     <application
         android:name=".AppContext"
@@ -49,7 +50,6 @@
             android:name="preloaded_fonts"
             android:resource="@array/preloaded_fonts" />
 
-<!--
         <receiver
             android:name=".GeofenceBroadcastReceiver"
             android:enabled="true"
@@ -62,7 +62,15 @@
                 <action android:name="android.location.PROVIDERS_CHANGED" />
             </intent-filter>
         </receiver>
--->
+
+        <receiver
+            android:name=".helper.Restarter"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="restartservice" />
+            </intent-filter>
+        </receiver>
 
         <service
             android:name=".service.TtsService"
@@ -72,6 +80,12 @@
 
         <service
             android:name=".service.LocationService"
+            android:enabled="true"
+            android:exported="true"
+            android:foregroundServiceType="location" />
+
+        <service
+            android:name=".service.NewService"
             android:enabled="true"
             android:exported="true"
             android:foregroundServiceType="location" />

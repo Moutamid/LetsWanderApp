@@ -25,12 +25,13 @@ import java.util.Locale;
 
 public class TtsService extends Service implements TextToSpeech.OnInitListener {
     private TextToSpeech textToSpeech;
-    String TAG = "GeofenceBroadcastReceiv";
+    String TAG = "SERVICEHHH";
     String desc = "";
 
     @Override
     public void onCreate() {
         super.onCreate();
+        Log.d(TAG, "onCreate");
         textToSpeech = new TextToSpeech(this, status -> {
             if (status != TextToSpeech.SUCCESS) {
                 // Handle error
@@ -53,10 +54,14 @@ public class TtsService extends Service implements TextToSpeech.OnInitListener {
         if (intent != null) {
             String description = intent.getStringExtra("description");
             if (description != null && !description.isEmpty()) {
-                Log.d(TAG, description);
+                Log.d(TAG, "description TTS :   " + description);
                 desc = description;
                 onInit(TextToSpeech.SUCCESS);
+            } else {
+                Log.d(TAG, "description is null");
             }
+        } else {
+            Log.d(TAG, "Intent is null in TTS");
         }
         return START_STICKY;
     }

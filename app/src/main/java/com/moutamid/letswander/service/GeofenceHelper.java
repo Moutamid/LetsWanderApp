@@ -29,7 +29,7 @@ public class GeofenceHelper extends ContextWrapper {
                 .build();
     }
 
-    public Geofence getGeofence(String ID, LatLng latLng, float radius, int transitionTypes) {
+    public static Geofence getGeofence(String ID, LatLng latLng, float radius, int transitionTypes) {
         return new Geofence.Builder()
                 .setCircularRegion(latLng.latitude, latLng.longitude, radius)
                 .setRequestId(ID)
@@ -40,10 +40,8 @@ public class GeofenceHelper extends ContextWrapper {
     }
 
     public PendingIntent getPendingIntent() {
-        Intent intent = new Intent(this, LocationService.class);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            pendingIntent = PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
-        }
+        Intent intent = new Intent(this, GeofenceBroadcastReceiver.class);
+        pendingIntent = PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_IMMUTABLE);
         return pendingIntent;
     }
 

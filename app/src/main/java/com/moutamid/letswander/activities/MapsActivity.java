@@ -1,6 +1,7 @@
 package com.moutamid.letswander.activities;
 
 import android.Manifest;
+import android.app.ActivityManager;
 import android.app.Dialog;
 import android.app.PendingIntent;
 import android.app.ProgressDialog;
@@ -15,8 +16,10 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.location.Location;
 import android.location.LocationManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.PowerManager;
 import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
 import android.util.Log;
@@ -74,6 +77,7 @@ import com.moutamid.letswander.helper.NotificationHelper;
 import com.moutamid.letswander.models.MarkerData;
 import com.moutamid.letswander.service.GeofenceHelper;
 import com.moutamid.letswander.service.LocationService;
+import com.moutamid.letswander.service.NewService;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -151,7 +155,7 @@ public class MapsActivity extends AppCompatActivity implements TextToSpeech.OnIn
                                 return;
                             }
                             googleMap.setMyLocationEnabled(true);
-                            Constants.databaseReference().child(Constants.Markers).addListenerForSingleValueEvent(new ValueEventListener() {
+                            Constants.databaseReference().child(Constants.Markers).addValueEventListener(new ValueEventListener() {
                                 @Override
                                 public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                                     if (dataSnapshot.exists()) {
@@ -177,7 +181,7 @@ public class MapsActivity extends AppCompatActivity implements TextToSpeech.OnIn
 //                                            mMap.clear();
                                             addCircle(location, GEOFENCE_RADIUS, markerOptions.getSnippet());
                                             googleMap.addMarker(markerOptions);
-                                            addGeofence(location, GEOFENCE_RADIUS, markerOptions.getSnippet());
+//                                            addGeofence(location, GEOFENCE_RADIUS, markerOptions.getSnippet());
                                             Stash.put(Constants.STASH_Markers, markerDataList);
                                         }
                                     }
@@ -201,13 +205,69 @@ public class MapsActivity extends AppCompatActivity implements TextToSpeech.OnIn
                                 return false;
                             });
 
-                            Intent locationServiceIntent = new Intent(MapsActivity.this, LocationService.class);
-                            ContextCompat.startForegroundService(MapsActivity.this, locationServiceIntent);
+                            googleMap.setOnMyLocationClickListener(new GoogleMap.OnMyLocationClickListener() {
+                                @Override
+                                public void onMyLocationClick(@NonNull Location location) {
+                                    LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
+                                    Toast.makeText(MapsActivity.this, latLng.toString(), Toast.LENGTH_SHORT).show();
+                                }
+                            });
+
+                            startInitService();
+
                         });
                     }
                 }
             });
         }
+    }
+
+    Intent mServiceIntent;
+    private NewService mYourService;
+
+    private void startInitService() {
+        mYourService = new NewService();
+        mServiceIntent = new Intent(this, mYourService.getClass());
+        if (!isMyServiceRunning(mYourService.getClass())) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(mServiceIntent);
+            } else {
+                startService(mServiceIntent);
+            }
+        }
+    }
+
+    private void askToDisableDozeMode() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                Log.d(TAG, "askToDisableDozeMode: ");
+                Intent intent = new Intent();
+                String packageName = getPackageName();
+                PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+                if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+//                    intent.setAction(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+                intent.setAction(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                    intent.setData(Uri.parse("package:" + packageName));
+                    startActivity(intent);
+                } else {
+                    Toast.makeText(MapsActivity.this, "Doze mode is active", Toast.LENGTH_SHORT).show();
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private boolean isMyServiceRunning(Class<?> serviceClass) {
+        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+            if (serviceClass.getName().equals(service.service.getClassName())) {
+                Log.i("Service status", "Running");
+                return true;
+            }
+        }
+        Log.i("Service status", "Not running");
+        return false;
     }
 
     private BitmapDescriptor vectorToBitmap(@DrawableRes int vectorResourceId, int width, int height) {

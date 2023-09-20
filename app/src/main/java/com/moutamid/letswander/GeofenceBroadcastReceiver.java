@@ -35,7 +35,7 @@ import java.util.Objects;
 
 public class GeofenceBroadcastReceiver extends BroadcastReceiver {
 
-    private static final String TAG = "GeofenceBroadcastReceiv";
+    private static final String TAG = "SERVICEHHH";
     TextToSpeech textToSpeech;
     Context context;
     String desc, descriptionToSpeak = "";
@@ -46,23 +46,26 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
 
         Log.d(TAG, "onReceive");
 
+        NotificationHelper notificationHelper = new NotificationHelper(context);
 
-/*        if (intent != null) {
+
+       if (intent != null) {
+           Log.d(TAG, "intent is not null");
             GeofencingEvent geofencingEvent = GeofencingEvent.fromIntent(intent);
             if (geofencingEvent != null) {
                 int transitionType = geofencingEvent.getGeofenceTransition();
+                Log.d(TAG, "transitionType    " + transitionType);
                 switch (transitionType) {
                     case Geofence.GEOFENCE_TRANSITION_ENTER:
-//        List<Geofence> geofenceList = geofencingEvent.getTriggeringGeofences();
+                        List<Geofence> geofenceList = geofencingEvent.getTriggeringGeofences();
                         ArrayList<MarkerData> markerDataList = Stash.getArrayList(Constants.STASH_Markers, MarkerData.class);
                         for (Geofence geofence : geofenceList) {
                             String geofenceRequestId = geofence.getRequestId();
                             for (MarkerData markerData : markerDataList) {
                                 LatLng latLng = new LatLng(markerData.getLatitude(), markerData.getLongitude());
                                 String location = String.valueOf(latLng);
-                                if (geofenceRequestId.equals(location)) {
-                                    Log.d("TTS Geofence", "Entered");
-                                    Toast.makeText(context, "Entered", Toast.LENGTH_SHORT).show();
+                                if (geofenceRequestId.equals(location) && !markerData.getStar()) {
+                                    Log.d(TAG, "Entered");
                                     descriptionToSpeak = markerData.getDescription();
                                     Intent ttsIntent = new Intent(context, TtsService.class);
                                     ttsIntent.putExtra("description", descriptionToSpeak);
@@ -94,7 +97,7 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
             }
         } else {
             Log.e(TAG, "Received null intent");
-        }*/
+        }
     }
 
     private ServiceConnection ttsServiceConnection = new ServiceConnection() {

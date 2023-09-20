@@ -65,7 +65,7 @@ public class NotificationHelper extends ContextWrapper {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
-        NotificationManagerCompat.from(this).notify(new Random().nextInt(), notification);
+        NotificationManagerCompat.from(this).notify(1, notification);
 
 
     }
