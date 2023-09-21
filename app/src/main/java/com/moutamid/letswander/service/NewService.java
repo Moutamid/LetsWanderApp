@@ -124,8 +124,6 @@ public class NewService extends Service {
                 fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, myLooper);
             }
 
-
-
             ArrayList<MarkerData> list = new ArrayList<>();
             Constants.databaseReference().child(Constants.Markers).addValueEventListener(new ValueEventListener() {
                 @Override
